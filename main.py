@@ -8,6 +8,8 @@ import tensorflow as tf
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import plotly.express as px
+import datetime
 
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import LabelEncoder
@@ -15,11 +17,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import DBSCAN
 from sklearn.cluster import KMeans
 from sklearn.cluster import MiniBatchKMeans
-
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 
 
 def read_and_merge_data():
@@ -33,16 +32,28 @@ def read_and_merge_data():
     return mergedDataframe
 
 
-def remap_column(column_name):
-    x = dataframe[column_name].value_counts()
-    item_type_mapping = {}
-    item_list = x.index
-    for i in range(0, len(item_list)):
-        item_type_mapping[item_list[i]] = i
+# def remap_column(column_name):
+#     x = dataframe[column_name].value_counts()
+#     item_type_mapping = {}
+#     item_list = x.index
+#     for i in range(0, len(item_list)):
+#         item_type_mapping[item_list[i]] = i
+#
+#     res = new('Result', {
+#         'frame': dataframe[column_name].map(lambda x: item_type_mapping[x]),
+#         'dictionary': item_type_mapping
+#     })
+#     return res
+
+
+def new_remap_column(column_name, frame):
+    z = frame[column_name].value_counts()
+    dict1 = z.to_dict()  # converts to dictionary
+    frame[column_name] = frame[column_name].map(dict1)
 
     res = new('Result', {
-        'frame': dataframe[column_name].map(lambda x: item_type_mapping[x]),
-        'dictionary': item_type_mapping
+        'frame': frame[column_name],
+        'dictionary': dict1
     })
     return res
 
@@ -56,42 +67,35 @@ def remap_values():
     print('string_columns', string_columns)
     # string_columns['name', 'release_date', 'developer', 'publisher', 'platforms', 'categories', 'genres', 'owners']
 
-    result = remap_column('name')
-    dataframe['name'] = result.frame
-    name_dict = result.dictionary
+    dataframe['release_date'] = pd.to_datetime(dataframe['release_date'])
+    dataframe['release_date'] = (datetime.datetime.now() - dataframe['release_date']).dt.days
 
-    result = remap_column('release_date')
-    dataframe['release_date'] = result.frame
-    release_date_dict = result.dictionary
-
-    result = remap_column('developer')
+    result = new_remap_column('developer', dataframe)
     dataframe['developer'] = result.frame
     developer_dict = result.dictionary
-
-    result = remap_column('publisher')
+    # #
+    result = new_remap_column('publisher', dataframe)
     dataframe['publisher'] = result.frame
     publisher_dict = result.dictionary
-
-    result = remap_column('platforms')
+    #
+    result = new_remap_column('platforms', dataframe)
     dataframe['platforms'] = result.frame
     platforms_dict = result.dictionary
-
-    result = remap_column('categories')
+    #
+    result = new_remap_column('categories', dataframe)
     dataframe['categories'] = result.frame
     categories_dict = result.dictionary
-
-    result = remap_column('genres')
+    #
+    result = new_remap_column('genres', dataframe)
     dataframe['genres'] = result.frame
     genres_dict = result.dictionary
-
-    result = remap_column('owners')
+    #
+    result = new_remap_column('owners', dataframe)
     dataframe['owners'] = result.frame
     owners_dict = result.dictionary
 
     res = new('Result', {
         'dataframe': dataframe,
-        'name_dict': name_dict,
-        'release_date_dict': release_date_dict,
         'developer_dict': developer_dict,
         'publisher_dict': publisher_dict,
         'platforms_dict': platforms_dict,
@@ -106,17 +110,27 @@ def analyse_dataframe(dframe):
     print('HEAD', dframe.head())
     print('INFO', dframe.info())
     print('DESCRIBE', dframe.describe())
-    # print('DTYPES', dataframe.dtypes())
-    # print(dataframe['developer'].unique())
-    # print(dataframe['developer'].value_counts())
+    dframe = dframe[['release_date', 'english', 'developer', 'publisher', 'platforms',
+     'required_age', 'categories', 'genres', 'positive_ratings', 'negative_ratings',
+     'average_playtime', 'owners', 'price', '2.5d', '2d', '3d', 'action_rpg',
+     'action_adventure', 'adventure', 'alternate_history', 'anime', 'arcade',
+     'assassin', 'batman', 'battle_royale', 'blood', 'survival', 'western',
+     'board_game', 'card_game', 'cartoon', 'cinematic', 'co_op', 'co_op_campaign',
+     'competitive', 'comedy', 'crime', 'detective', 'difficult', 'education',
+     'emotional', 'fantasy', 'historical', 'indie', 'kickstarter',
+     'lara_croft', 'multiplayer', 'realistic', 'sexual_content', 'simulation',
+     'singleplayer', 'sports', 'world_war_i', 'world_war_ii', 'e_sports']].copy()
+    print('HEAD after', dframe.head())
+    print('INFO after', dframe.info())
+    print('DESCRIBE after', dframe.describe())
+    # del dataframe['appid']
+    # del dataframe['name']
+    # del dataframe['achievements']  # mna to ani nebavi zbierat na steame plus nie kazda hra to ma
+    return dframe
 
 
-def back_remap(data):
-    data.dataframe = pd.DataFrame(data.dataframe, index=index, columns=columns)
-
-    tmp_dataframe = data.dataframe.copy()
-    tmp_dataframe.name = tmp_dataframe.name.astype(int)
-    tmp_dataframe.release_date = tmp_dataframe.release_date.astype(int)
+def back_remap(frame, data):
+    tmp_dataframe = frame.copy()
     tmp_dataframe.developer = tmp_dataframe.developer.astype(int)
     tmp_dataframe.publisher = tmp_dataframe.publisher.astype(int)
     tmp_dataframe.platforms = tmp_dataframe.platforms.astype(int)
@@ -124,9 +138,6 @@ def back_remap(data):
     tmp_dataframe.genres = tmp_dataframe.genres.astype(int)
     tmp_dataframe.owners = tmp_dataframe.owners.astype(int)
 
-
-    tmp_dataframe['name'] = tmp_dataframe['name'].map({v: k for k, v in data.name_dict.items()})
-    tmp_dataframe['release_date'] = tmp_dataframe['release_date'].map({v: k for k, v in data.release_date_dict.items()})
     tmp_dataframe['developer'] = tmp_dataframe['developer'].map({v: k for k, v in data.developer_dict.items()})
     tmp_dataframe['publisher'] = tmp_dataframe['publisher'].map({v: k for k, v in data.publisher_dict.items()})
     tmp_dataframe['platforms'] = tmp_dataframe['platforms'].map({v: k for k, v in data.platforms_dict.items()})
@@ -139,7 +150,7 @@ def back_remap(data):
 def figure_graph(clusters, start, end):
     fig2_columns = []
     fig2_columns.extend(clusters.iloc[:, start:end].columns.values)
-    fig2 = make_subplots(rows=10, cols=5,
+    fig2 = make_subplots(rows=6, cols=5,
                          subplot_titles=fig2_columns
                          )
     fig2_clmn = list(clusters.iloc[:, start:end])
@@ -158,20 +169,20 @@ def figure_graph(clusters, start, end):
     return fig2
 
 
-def viz_kmeans_cluster(frame):
-    counts = frame['cluster_id'].value_counts()
-    clusters = frame.groupby(['cluster_id']).mean()
+def viz_clusters(frame, id_name):
+    counts = frame[id_name].value_counts()
+    clusters = frame.groupby([id_name]).mean()
 
     fig1_columns = ['clusters_count']
-    fig1_columns.extend(clusters.iloc[:, 0:49].columns.values)
-    fig1 = make_subplots(rows=10, cols=5,
+    fig1_columns.extend(clusters.iloc[:, 0:29].columns.values)
+    fig1 = make_subplots(rows=6, cols=5,
                          subplot_titles=fig1_columns
                          )
     fig1.add_trace(
         go.Bar(x=counts.index, y=counts.values),
         row=1, col=1
     )
-    fig1_clmn = list(clusters.iloc[:, 0:49])
+    fig1_clmn = list(clusters.iloc[:, 0:29])
     row = 1
     col = 2
     for i in fig1_clmn:
@@ -184,52 +195,109 @@ def viz_kmeans_cluster(frame):
             col = 1
             row += 1
 
-    fig2 = figure_graph(clusters, 49, 99)
-    fig3 = figure_graph(clusters, 99, 149)
-    fig4 = figure_graph(clusters, 149, 199)
-    fig5 = figure_graph(clusters, 199, 249)
-    fig6 = figure_graph(clusters, 249, 299)
-    fig7 = figure_graph(clusters, 299, 349)
-    fig8 = figure_graph(clusters, 349, 380)
+    fig2 = figure_graph(clusters, 29, 57)
+    # fig3 = figure_graph(clusters, 99, 149)
+    # fig4 = figure_graph(clusters, 149, 199)
+    # fig5 = figure_graph(clusters, 199, 249)
+    # fig6 = figure_graph(clusters, 249, 299)
+    # fig7 = figure_graph(clusters, 299, 349)
+    # fig8 = figure_graph(clusters, 349, 380)
 
     fig1.show()
     fig2.show()
-    fig3.show()
-    fig4.show()
-    fig5.show()
-    fig6.show()
-    fig7.show()
-    fig8.show()
+    # fig3.show()
+    # fig4.show()
+    # fig5.show()
+    # fig6.show()
+    # fig7.show()
+    # fig8.show()
 
+    #add figures for  -> release_date, developer, publisher, platforms, categories, genres, owners
+
+
+def k_means_solution():
+    print('=====STARTING k means CLUSTERING=====')
+    km = MiniBatchKMeans(5, init='k-means++', random_state=0)
+    km_model = km.fit(frame_dicts.dataframe)
+    kmeans_labels = km_model.labels_
+    frame_dicts.dataframe = scaler.inverse_transform(frame_dicts.dataframe)
+
+    frame_dicts.dataframe = pd.DataFrame(frame_dicts.dataframe, index=index, columns=columns)
+    kmeans_dataframe = frame_dicts.dataframe.copy()
+
+    pca = PCA(n_components=3)
+    components = pca.fit_transform(kmeans_dataframe)
+
+    kmeans_dataframe['cluster_id'] = kmeans_labels
+    kmeans_dataframe['name'] = names
+    # kmeans_dataframe = back_remap(kmeans_dataframe, frame_dicts)
+
+    # data visualization
+    total_var = pca.explained_variance_ratio_.sum() * 100
+
+    fig3D = px.scatter_3d(
+        components, x=0, y=1, z=2, color=kmeans_dataframe['cluster_id'], hover_name=kmeans_dataframe['name'],
+        title=f'Total Explained Variance: {total_var:.2f}%',
+        labels={'0': 'PC 1', '1': 'PC 2', '2': 'PC 3'}
+    )
+    fig3D.show()
+
+    viz_clusters(kmeans_dataframe, 'cluster_id')
+    print('=====ENDING k means CLUSTERING=====')
+    return kmeans_dataframe
+
+
+def dbscan_solution():
+    print('=====STARTING dbscan CLUSTERING=====')
+    dbscan = DBSCAN(eps=5, min_samples=3)
+    dbscan_lables = dbscan.fit_predict(frame_dicts.dataframe)
+
+    frame_dicts.dataframe = scaler.inverse_transform(frame_dicts.dataframe)
+
+    frame_dicts.dataframe = pd.DataFrame(frame_dicts.dataframe, index=index, columns=columns)
+    dbscan_dataframe = frame_dicts.dataframe.copy()
+
+    tsne = TSNE(n_components=3)
+    components = tsne.fit_transform(dbscan_dataframe)
+
+    dbscan_dataframe['dbscan_id'] = dbscan_lables
+    dbscan_dataframe['name'] = names
+    # dbscan_dataframe = back_remap(dbscan_dataframe, frame_dicts)
+
+    # data visualization
+    fig3D = px.scatter_3d(
+        components, x=0, y=1, z=2, color=dbscan_dataframe['dbscan_id'], hover_name=dbscan_dataframe['name'],
+        labels={'0': 'PC 1', '1': 'PC 2', '2': 'PC 3'}
+    )
+    fig3D.show()
+
+    viz_clusters(dbscan_dataframe, 'dbscan_id')
+    print('=====ENDING dbscan CLUSTERING=====')
+    return dbscan_dataframe
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     dataframe = read_and_merge_data()
-
     start_dataframe = dataframe.copy()
-    columns = dataframe.columns
-    index = dataframe.index
 
-    analyse_dataframe(dataframe)
+    index = dataframe.index
+    names = dataframe.name
+    dataframe = analyse_dataframe(dataframe)
+
+    columns = dataframe.columns
 
     #remap string values to int
     frame_dicts = remap_values()
-    print('NEW FRAME DICTS OBJ', frame_dicts.dataframe.describe())
 
-    # normalize data
+    #normalize data
     scaler = StandardScaler()
     frame_dicts.dataframe = scaler.fit_transform(frame_dicts.dataframe)
 
-    #k-means clustering
-    print('=====STARTING CLUSTERING=====')
-    km = MiniBatchKMeans(8, init='k-means++', random_state=0)
-    km_model = km.fit(frame_dicts.dataframe)
-    kmeans_labels = km.labels_
-    frame_dicts.dataframe = scaler.inverse_transform(frame_dicts.dataframe)
+    # k means code
+    kmeans_dataframe = k_means_solution()
 
-    #return back remaped dataframe
-    kmeans_dataframe = back_remap(frame_dicts)
-    kmeans_dataframe['cluster_id'] = kmeans_labels
+    # dbscan code
+    dbscan_dataframe = dbscan_solution()
 
-    viz_kmeans_cluster(kmeans_dataframe)
+
